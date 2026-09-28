@@ -4,8 +4,8 @@ Lab 11 — Configuration, provider selection, API keys.
 Hai tầng model (không trộn):
 
   Blue Team (CP2–CP3, guardrails / pipeline / protected agent)
-    → CỐ ĐỊNH OpenRouter ``liquid/lfm-2.5-2.6b``
-       https://openrouter.ai/liquid/lfm-2.5-2.6b
+    → CỐ ĐỊNH OpenRouter ``liquid/lfm-2.5-2.6b:free``
+       https://openrouter.ai/liquid/lfm-2.5-2.6b:free
     → Cần ``OPENROUTER_API_KEY``
 
   Red Team (CP4)
@@ -36,7 +36,8 @@ PROVIDER_OPENROUTER = "openrouter"
 
 # --- Blue Team (LOCKED) ---
 BLUE_PROVIDER = PROVIDER_OPENROUTER
-BLUE_MODEL = "liquid/lfm-2.5-2.6b"
+# OpenRouter currently serves this model through its :free endpoint.
+BLUE_MODEL = "liquid/lfm-2.5-2.6b:free"
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_OPENROUTER_MODEL = BLUE_MODEL  # alias
 

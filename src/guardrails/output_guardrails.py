@@ -13,6 +13,7 @@ from google.adk import runners
 from google.adk.plugins import base_plugin
 
 from core.utils import chat_with_agent
+from core.config import DEMO_SECRETS
 
 
 # ============================================================
@@ -47,6 +48,12 @@ def content_filter(response: str) -> dict:
         # - National ID (CMND/CCCD): r"\b\d{9}\b|\b\d{12}\b"
         # - API key pattern: r"sk-[a-zA-Z0-9-]+"
         # - Password pattern: r"password\s*[:=]\s*\S+"
+        "phone": r"(?<!\d)0\d{9,10}(?!\d)",
+        "email": r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}",
+        "national_id": r"(?<!\d)(?:\d{12}|\d{9})(?!\d)",
+        "api_key": r"\bsk-[a-zA-Z0-9-]+\b",
+        "password": r"\bpassword\s*(?:is|[:=])\s*\S+",
+        "internal_db": r"\bdb\.vinbank\.internal(?::\d+)?\b",
     }
 
     for name, pattern in PII_PATTERNS.items():
@@ -54,6 +61,12 @@ def content_filter(response: str) -> dict:
         if matches:
             issues.append(f"{name}: {len(matches)} found")
             redacted = re.sub(pattern, "[REDACTED]", redacted, flags=re.IGNORECASE)
+
+    # Catch demo secrets even when a model prints only a bare value.
+    for secret in sorted(DEMO_SECRETS, key=len, reverse=True):
+        if secret and re.search(re.escape(secret), response, re.IGNORECASE):
+            issues.append("protected_secret: 1 found")
+            redacted = re.sub(re.escape(secret), "[REDACTED]", redacted, flags=re.IGNORECASE)
 
     return {
         "safe": len(issues) == 0,
@@ -180,6 +193,25 @@ class OutputGuardrailPlugin(base_plugin.BasePlugin):
         #    - If unsafe: replace llm_response.content with a safe message
         #    - Increment self.blocked_count
         # 3. Return llm_response (possibly modified)
+
+        filtered = content_filter(response_text)
+        safe_text = filtered["redacted"]
+        if not filtered["safe"]:
+            self.redacted_count += 1
+            llm_response.content = types.Content(
+                role="model", parts=[types.Part.from_text(text=safe_text)]
+            )
+
+        if self.use_llm_judge:
+            judgment = await llm_safety_check(safe_text)
+            if not judgment["safe"]:
+                self.blocked_count += 1
+                llm_response.content = types.Content(
+                    role="model",
+                    parts=[types.Part.from_text(
+                        text="I cannot provide that response. How can I help with your VinBank banking needs?"
+                    )],
+                )
 
         return llm_response  # TODO: modify if needed
 

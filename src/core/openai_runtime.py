@@ -1,7 +1,7 @@
 """
 OpenAI SDK runtime — dùng cho:
 
-  Blue Team → OpenRouter liquid/lfm-2.5-2.6b (create_blue_pair)
+  Blue Team → OpenRouter liquid/lfm-2.5-2.6b:free (create_blue_pair)
   Red Team  → OpenAI gpt-4o-mini (create_openai_pair) khi RED_TEAM_PROVIDER=openai
 
 Gemini Red Team dùng Google ADK trong agents/*.py — không đi qua file này.
@@ -191,7 +191,7 @@ def create_blue_pair(
     output_hooks: list | None = None,
     temperature: float = 0.4,
 ) -> tuple[OpenAIAgent, OpenAIRunner]:
-    """Blue Team — always OpenRouter liquid/lfm-2.5-2.6b."""
+    """Blue Team — always OpenRouter liquid/lfm-2.5-2.6b:free."""
     return _make_pair(
         name=name,
         instruction=instruction,

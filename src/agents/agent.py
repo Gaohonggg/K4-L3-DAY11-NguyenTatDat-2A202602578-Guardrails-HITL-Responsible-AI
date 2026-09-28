@@ -2,7 +2,7 @@
 Lab 11 — Agent factories
 
   Blue         → create_blue_agent(plugins)
-                 OpenRouter liquid/lfm-2.5-2.6b (LOCKED) + student plugins
+                 OpenRouter liquid/lfm-2.5-2.6b:free (LOCKED) + student plugins
   Red          → create_red_agent_default()
                  mềm (không guardrails mạnh)
   Red Advance  → create_red_agent_advance()  (xem guards_agent.py)
@@ -97,7 +97,7 @@ def create_red_agent_default():
 
 
 def create_blue_agent(plugins: list):
-    """Blue — ALWAYS OpenRouter liquid/lfm-2.5-2.6b + student plugins."""
+    """Blue — ALWAYS OpenRouter liquid/lfm-2.5-2.6b:free + student plugins."""
     from core.openai_runtime import create_blue_pair
 
     agent, runner = create_blue_pair(

@@ -11,6 +11,7 @@ Status convention (không dùng True/False mơ hồ):
 from __future__ import annotations
 
 import re
+import unicodedata
 from typing import Literal
 
 from google.genai import types
@@ -21,6 +22,28 @@ from core.config import ALLOWED_TOPICS, BLOCKED_TOPICS
 
 # Quyết định rõ ràng — tránh đảo nghĩa True/False
 InputStatus = Literal["ALLOW", "BLOCK"]
+
+
+def _normalize_for_matching(text: str, *, invisible_as_space: bool = False) -> str:
+    """Normalize Unicode, including invisible separators and Vietnamese accents."""
+    normalized = unicodedata.normalize("NFKC", text or "")
+    replacement = " " if invisible_as_space else ""
+    normalized = "".join(
+        replacement if unicodedata.category(char) == "Cf" else char
+        for char in normalized
+    )
+    normalized = unicodedata.normalize("NFKD", normalized.casefold())
+    normalized = "".join(
+        char for char in normalized if not unicodedata.combining(char)
+    ).replace("đ", "d")
+    return " ".join(normalized.split())
+
+
+def _contains_topic(text: str, topic: str) -> bool:
+    """Match a configured word or phrase without matching inside another word."""
+    normalized_topic = _normalize_for_matching(topic)
+    pattern = r"(?<!\w)" + re.escape(normalized_topic).replace(r"\ ", r"\s+") + r"(?!\w)"
+    return re.search(pattern, text) is not None
 
 
 # ============================================================
@@ -55,11 +78,21 @@ def detect_injection(user_input: str) -> InputStatus:
         # TODO: Add at least 5 regex patterns
         # Example:
         # r"ignore (all )?(previous|above) instructions",
+        r"\b(?:ignore|disregard|forget)\s*(?:all\s*)?(?:previous|prior|above|your)?\s*(?:instructions?|rules?|directives?)\b",
+        r"\byou\s+are\s+now\b",
+        r"\b(?:system|developer)\s*(?:prompt|instructions?)\b",
+        r"\b(?:reveal|disclose|show)\s+(?:me\s+)?(?:your\s+)?(?:hidden\s+)?(?:instructions?|prompt|secrets?)\b",
+        r"\bpretend\s+(?:you\s+are|to\s+be)\b",
+        r"\bact\s+as\s+(?:an?\s+)?(?:unrestricted|jailbroken|unfiltered)\b",
     ]
 
-    for pattern in INJECTION_PATTERNS:
-        if re.search(pattern, user_input, re.IGNORECASE):
-            return "BLOCK"
+    for normalized in (
+        _normalize_for_matching(user_input),
+        _normalize_for_matching(user_input, invisible_as_space=True),
+    ):
+        for pattern in INJECTION_PATTERNS:
+            if re.search(pattern, normalized):
+                return "BLOCK"
     return "ALLOW"
 
 
@@ -92,6 +125,13 @@ def topic_filter(user_input: str) -> InputStatus:
     # 3. Otherwise -> return "ALLOW"
 
     pass  # Replace with your implementation
+
+    normalized = _normalize_for_matching(input_lower, invisible_as_space=True)
+    if any(_contains_topic(normalized, topic) for topic in BLOCKED_TOPICS):
+        return "BLOCK"
+    if not any(_contains_topic(normalized, topic) for topic in ALLOWED_TOPICS):
+        return "BLOCK"
+    return "ALLOW"
 
 
 # ============================================================
@@ -152,6 +192,18 @@ class InputGuardrailPlugin(base_plugin.BasePlugin):
         # 3. If both return "ALLOW": return None (let message through)
 
         pass  # Replace with your implementation
+
+        if detect_injection(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response(
+                "I cannot follow instructions that override VinBank's rules."
+            )
+        if topic_filter(text) == "BLOCK":
+            self.blocked_count += 1
+            return self._block_response(
+                "I can only help with VinBank banking questions."
+            )
+        return None
 
 
 # ============================================================

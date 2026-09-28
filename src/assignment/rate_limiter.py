@@ -17,6 +17,8 @@ class RateLimitPlugin(base_plugin.BasePlugin):
     """Block users who exceed max_requests within window_seconds."""
 
     def __init__(self, max_requests: int = 10, window_seconds: int = 60):
+        if max_requests < 1 or window_seconds < 1:
+            raise ValueError("max_requests and window_seconds must be positive")
         super().__init__(name="rate_limiter")
         self.max_requests = max_requests
         self.window_seconds = window_seconds
@@ -46,4 +48,16 @@ class RateLimitPlugin(base_plugin.BasePlugin):
         #           f"Rate limit exceeded. Try again in {wait:.0f}s."
         #       )
         # 3. Else: append now, return None
-        raise NotImplementedError("Implement RateLimitPlugin.on_user_message_callback")
+        cutoff = now - self.window_seconds
+        while window and window[0] <= cutoff:
+            window.popleft()
+
+        if len(window) >= self.max_requests:
+            wait = max(0.0, self.window_seconds - (now - window[0]))
+            self.blocked_count += 1
+            return self._block_response(
+                f"Rate limit exceeded. Try again in {wait:.0f}s."
+            )
+
+        window.append(now)
+        return None
