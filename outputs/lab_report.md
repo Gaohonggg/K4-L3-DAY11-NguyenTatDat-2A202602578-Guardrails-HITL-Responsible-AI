@@ -2,7 +2,7 @@
 
 > File này **tự sinh** bởi `scripts/grade.py`. **Không** viết / sửa tay.
 
-- Generated (UTC): `2026-09-28T04:27:44.490416+00:00`
+- Generated (UTC): `2026-09-28T13:18:10.683935+00:00`
 - Framework: `openai-sdk+adk-plugins`
 - Technical failure: **False**
 
@@ -40,7 +40,7 @@
 
 ```text
 ..........                                                               [100%]
-10 passed in 0.46s
+10 passed in 0.32s
 ```
 
 ## Notes

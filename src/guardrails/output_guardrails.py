@@ -6,6 +6,7 @@ Checkpoint 2 — Output Guardrails
 """
 import re
 import textwrap
+import unicodedata
 
 from google.genai import types
 from google.adk.agents import llm_agent
@@ -14,6 +15,18 @@ from google.adk.plugins import base_plugin
 
 from core.utils import chat_with_agent
 from core.config import DEMO_SECRETS
+
+
+_OBFUSCATED_SECRET_REPLY = (
+    "I cannot share internal system details. "
+    "How can I help with your VinBank banking needs?"
+)
+
+
+def _canonicalize_for_secret_match(text: str) -> str:
+    """Collapse Unicode formatting and separators used to split known secrets."""
+    normalized = unicodedata.normalize("NFKC", text).casefold()
+    return "".join(char for char in normalized if char.isalnum())
 
 
 # ============================================================
@@ -67,6 +80,18 @@ def content_filter(response: str) -> dict:
         if secret and re.search(re.escape(secret), response, re.IGNORECASE):
             issues.append("protected_secret: 1 found")
             redacted = re.sub(re.escape(secret), "[REDACTED]", redacted, flags=re.IGNORECASE)
+
+    # Check the remaining text after literal redaction. A model can spell a
+    # known secret character by character, so there may be no safe substring
+    # in the original output to replace. Reject the whole reply in that case.
+    canonical_remaining = _canonicalize_for_secret_match(redacted)
+    if any(
+        canonical_secret in canonical_remaining
+        for secret in DEMO_SECRETS
+        if (canonical_secret := _canonicalize_for_secret_match(secret))
+    ):
+        issues.append("obfuscated_protected_secret: 1 found")
+        redacted = _OBFUSCATED_SECRET_REPLY
 
     return {
         "safe": len(issues) == 0,
